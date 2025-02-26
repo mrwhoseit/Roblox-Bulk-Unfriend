@@ -1,4 +1,4 @@
-# Roblox Unfriend Manager
+# Roblox Bulk Unfriend
 
 This project provides a script to manage your Roblox friends list by allowing you to bulk unfriend users. The project was created to help battle the issue with unfriending users when exceeding 500 friends. This script supports two modes:
 
