@@ -53,7 +53,7 @@ npm install noblox.js
 1. **Run the Script:**
     - Open a terminal (Command Prompt, PowerShell, or your preferred terminal) and navigate to the files directory.
 	```
-	cd /path/to/file/
+	cd /path/to/file/src/
 	```
 	- To setup your Roblox Cookie, run:
 	```
