@@ -1,4 +1,4 @@
-# Roblox Unfriend Manager
+# Roblox Bulk Unfriend
 
 This project provides a Node.js script to manage your Roblox friends list by allowing you to bulk unfriend users. It supports two modes:
 
