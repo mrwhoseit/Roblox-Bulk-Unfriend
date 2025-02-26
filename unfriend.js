@@ -8,7 +8,7 @@ const readline = require('readline').createInterface({
 
 async function main() {
     const cookieFile = 'cookie.enc';
-    const targetsFile = 'targets.txt';
+    const targetsFile = 'include.txt';
     const excludeFile = 'exclude.txt';
 
     try {
