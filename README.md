@@ -65,7 +65,7 @@ npm install noblox.js
     node unfriend.js
 	```
 
-#### Below are some examples on how to use the program:
+**Below are some examples on how to use the program:**
 
 **Inclusive Mode:**
 ```text
