@@ -5,18 +5,17 @@ const readline = require('readline');
 
 function getSecureInput(prompt) {
     return new Promise(resolve => {
-        process.stdout.write(prompt + ' '); // Use write instead of console.log to stay on same line
+        process.stdout.write(prompt + ' ');
         let input = '';
         
-        // Configure terminal
         process.stdin.setRawMode(true);
         process.stdin.resume();
         process.stdin.setEncoding('utf-8');
         
+        // This function control the security of the secret key you input.
         const onData = (char) => {
             char = char.toString();
             
-            // Ctrl+C
             if (char === '\u0003') {
                 process.stdin.setRawMode(false);
                 process.stdin.removeListener('data', onData);
@@ -25,7 +24,6 @@ function getSecureInput(prompt) {
                 process.exit();
             }
             
-            // Enter key
             if (char === '\r' || char === '\n') {
                 process.stdin.setRawMode(false);
                 process.stdin.removeListener('data', onData);

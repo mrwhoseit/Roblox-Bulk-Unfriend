@@ -3,18 +3,17 @@ const fs = require('fs').promises;
 
 function getSecureInput(prompt) {
     return new Promise(resolve => {
-        process.stdout.write(prompt + ' '); // Use write instead of console.log to stay on same line
+        process.stdout.write(prompt + ' ');
         let input = '';
         
-        // Configure terminal
         process.stdin.setRawMode(true);
         process.stdin.resume();
         process.stdin.setEncoding('utf-8');
         
+        // This function control the security of the input of your cookie and secret key.
         const onData = (char) => {
             char = char.toString();
             
-            // Ctrl+C
             if (char === '\u0003') {
                 process.stdin.setRawMode(false);
                 process.stdin.removeListener('data', onData);
@@ -23,7 +22,6 @@ function getSecureInput(prompt) {
                 process.exit();
             }
             
-            // Enter key
             if (char === '\r' || char === '\n') {
                 process.stdin.setRawMode(false);
                 process.stdin.removeListener('data', onData);
@@ -57,7 +55,6 @@ async function encryptCookie() {
             return;
         }
 
-        // Generate random IV
         const iv = crypto.randomBytes(16);
 
         // Create cipher with the key (truncate or pad to 32 bytes for AES-256)
