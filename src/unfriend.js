@@ -141,6 +141,16 @@ async function main() {
             }
             console.log('-'.repeat(40));
         } else {
+            console.log('\n[WARNING] You are about to purge your entire friend list except for excluded users.');
+            console.log('[WARNING] This action cannot be undone.');
+            console.log('[INFO] To proceed, type "yes unfriend" (without quotes):');
+            
+            const confirmation = await getNormalInput('Confirmation: ');
+            if (confirmation.trim().toLowerCase() !== 'yes unfriend') {
+                console.log('[INFO] Operation cancelled by user');
+                return;
+            }
+
             let excludeList = [];
             try {
                 const excludeData = await fs.readFile(excludeFile, 'utf8');
