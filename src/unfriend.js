@@ -64,7 +64,7 @@ function getNormalInput(query) {
 }
 
 async function main() {
-    const cookieFile = 'cookie.enc';
+    const cookieFile =  'cookie.enc';
     const targetsFile = 'include.txt';
     const excludeFile = 'exclude.txt';
 
@@ -81,7 +81,7 @@ async function main() {
         }
 
         console.log('[INFO] Waiting for secret key...');
-        const secretKey = await getSecureInput('Enter your secret key:');
+        const secretKey = await getSecureInput('Enter your secret key (Output is hidden):');
 
         const [ivHex, encrypted] = encryptedData.split(':');
         const iv = Buffer.from(ivHex, 'hex');

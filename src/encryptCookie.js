@@ -49,8 +49,8 @@ function getSecureInput(prompt) {
 
 async function encryptCookie() {
     try {
-        const cookie = await getSecureInput('Enter your .ROBLOSECURITY cookie:');
-        const secretKey = await getSecureInput('Enter a secret key (at least 32 characters, keep it safe!):');
+        const cookie = await getSecureInput('Enter your .ROBLOSECURITY cookie (Output is hidden):');
+        const secretKey = await getSecureInput('Enter a secret key (Output is hidden, must be at least 32 characters):');
 
         if (secretKey.length < 32) {
             console.log('\nSecret key must be at least 32 characters for AES-256.');
