@@ -1,28 +1,62 @@
 const crypto = require('crypto');
 const fs = require('fs').promises;
-const readline = require('readline').createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+
+function getSecureInput(prompt) {
+    return new Promise(resolve => {
+        console.log(prompt);
+        let input = '';
+        
+        // Configure terminal
+        process.stdin.setRawMode(true);
+        process.stdin.resume();
+        process.stdin.setEncoding('utf-8');
+        
+        const onData = (char) => {
+            char = char.toString();
+            
+            // Ctrl+C
+            if (char === '\u0003') {
+                process.stdin.setRawMode(false);
+                process.stdin.removeListener('data', onData);
+                process.stdin.pause();
+                process.exit();
+            }
+            
+            // Enter key
+            if (char === '\r' || char === '\n') {
+                process.stdin.setRawMode(false);
+                process.stdin.removeListener('data', onData);
+                process.stdin.pause();
+                console.log(''); // New line
+                resolve(input);
+                return;
+            }
+            
+            // Backspace
+            if (char === '\u0008' || char === '\u007f') {
+                input = input.slice(0, -1);
+                return;
+            }
+            
+            // Add character to input
+            input += char;
+        };
+        
+        process.stdin.on('data', onData);
+    });
+}
 
 async function encryptCookie() {
     try {
-        const cookie = await new Promise((resolve) => {
-            readline.question('Enter your .ROBLOSECURITY cookie: ', (answer) => resolve(answer.trim()));
-        });
-
-        // It has to be 32 characters because of what the encryption method is (Sorry Brandon!)
-        const secretKey = await new Promise((resolve) => {
-            readline.question('Enter a secret key (at least 32 characters, keep it safe!): ', (answer) => resolve(answer));
-        });
+        const cookie = await getSecureInput('Enter your .ROBLOSECURITY cookie:');
+        const secretKey = await getSecureInput('Enter a secret key (at least 32 characters, keep it safe!):');
 
         if (secretKey.length < 32) {
-            console.log('Secret key must be at least 32 characters for AES-256.');
-            readline.close();
+            console.log('\nSecret key must be at least 32 characters for AES-256.');
             return;
         }
 
-        // This generates a random IV (Similar to a Public and Private key combo)
+        // Generate random IV
         const iv = crypto.randomBytes(16);
 
         // Create cipher with the key (truncate or pad to 32 bytes for AES-256)
@@ -35,12 +69,10 @@ async function encryptCookie() {
         const encryptedData = iv.toString('hex') + ':' + encrypted;
 
         await fs.writeFile('cookie.enc', encryptedData, 'utf8');
-        console.log('Cookie encrypted and saved to cookie.enc, keep your secret key safe!');
+        console.log('\nCookie encrypted and saved to cookie.enc, keep your secret key safe!');
 
     } catch (error) {
-        console.error('Error encrypting cookie:', error.message);
-    } finally {
-        readline.close();
+        console.error('\nError encrypting cookie:', error.message);
     }
 }
 

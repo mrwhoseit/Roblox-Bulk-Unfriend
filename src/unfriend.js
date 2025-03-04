@@ -1,10 +1,66 @@
 const noblox = require('noblox.js');
 const fs = require('fs').promises;
 const crypto = require('crypto');
-const readline = require('readline').createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+const readline = require('readline');
+
+function getSecureInput(prompt) {
+    return new Promise(resolve => {
+        console.log(prompt);
+        let input = '';
+        
+        // Configure terminal
+        process.stdin.setRawMode(true);
+        process.stdin.resume();
+        process.stdin.setEncoding('utf-8');
+        
+        const onData = (char) => {
+            char = char.toString();
+            
+            // Ctrl+C
+            if (char === '\u0003') {
+                process.stdin.setRawMode(false);
+                process.stdin.removeListener('data', onData);
+                process.stdin.pause();
+                process.exit();
+            }
+            
+            // Enter key
+            if (char === '\r' || char === '\n') {
+                process.stdin.setRawMode(false);
+                process.stdin.removeListener('data', onData);
+                process.stdin.pause();
+                console.log(''); // New line
+                resolve(input);
+                return;
+            }
+            
+            // Backspace
+            if (char === '\u0008' || char === '\u007f') {
+                input = input.slice(0, -1);
+                return;
+            }
+            
+            // Add character to input
+            input += char;
+        };
+        
+        process.stdin.on('data', onData);
+    });
+}
+
+function getNormalInput(query) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+    
+    return new Promise(resolve => {
+        rl.question(query, value => {
+            rl.close();
+            resolve(value);
+        });
+    });
+}
 
 async function main() {
     const cookieFile = 'cookie.enc';
@@ -24,9 +80,7 @@ async function main() {
         }
 
         console.log('[INFO] Waiting for secret key...');
-        const secretKey = await new Promise((resolve) => {
-            readline.question('Enter your secret key: ', (answer) => resolve(answer));
-        });
+        const secretKey = await getSecureInput('Enter your secret key:');
 
         const [ivHex, encrypted] = encryptedData.split(':');
         const iv = Buffer.from(ivHex, 'hex');
@@ -35,9 +89,9 @@ async function main() {
         let cookie;
         try {
             cookie = decipher.update(encrypted, 'hex', 'utf8') + decipher.final('utf8');
-            console.log('[SUCCESS] Cookie decrypted successfully');
+            console.log('\n[SUCCESS] Cookie decrypted successfully');
         } catch (error) {
-            console.log('[ERROR] Failed to decrypt cookie. Check your secret key.');
+            console.log('\n[ERROR] Failed to decrypt cookie. Check your secret key.');
             return;
         }
 
@@ -55,17 +109,15 @@ async function main() {
         console.log(`[SUCCESS] Logged in as ${currentUser.name} (ID: ${currentUser.id})`);
 
         console.log('[INFO] Waiting for mode selection...');
-        const mode = await new Promise((resolve) => {
-            readline.question('Choose mode (inclusive/exclusive): ', (answer) => resolve(answer.trim().toLowerCase()));
-        });
+        const mode = await getNormalInput('Choose mode (inclusive/exclusive): ');
 
-        if (mode !== 'inclusive' && mode !== 'exclusive') {
+        if (mode.trim().toLowerCase() !== 'inclusive' && mode.trim().toLowerCase() !== 'exclusive') {
             console.log('[ERROR] Invalid mode. Use "inclusive" or "exclusive"');
             return;
         }
         console.log(`===== Running in ${mode.toUpperCase()} Mode =====`);
 
-        if (mode === 'inclusive') {
+        if (mode.trim().toLowerCase() === 'inclusive') {
             let targets;
             try {
                 targets = await fs.readFile(targetsFile, 'utf8');
@@ -133,8 +185,6 @@ async function main() {
         console.log(`===== ${mode.toUpperCase()} Mode Completed =====`);
     } catch (error) {
         console.log(`[ERROR] Fatal error: ${error.message}`);
-    } finally {
-        readline.close();
     }
 }
 
