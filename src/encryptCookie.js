@@ -3,7 +3,7 @@ const fs = require('fs').promises;
 
 function getSecureInput(prompt) {
     return new Promise(resolve => {
-        console.log(prompt);
+        process.stdout.write(prompt + ' '); // Use write instead of console.log to stay on same line
         let input = '';
         
         // Configure terminal
@@ -19,6 +19,7 @@ function getSecureInput(prompt) {
                 process.stdin.setRawMode(false);
                 process.stdin.removeListener('data', onData);
                 process.stdin.pause();
+                process.stdout.write('\n');
                 process.exit();
             }
             
@@ -27,7 +28,7 @@ function getSecureInput(prompt) {
                 process.stdin.setRawMode(false);
                 process.stdin.removeListener('data', onData);
                 process.stdin.pause();
-                console.log(''); // New line
+                process.stdout.write('\n');
                 resolve(input);
                 return;
             }
