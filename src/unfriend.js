@@ -3,6 +3,10 @@ const fs = require('fs').promises;
 const crypto = require('crypto');
 const readline = require('readline');
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function getSecureInput(prompt) {
     return new Promise(resolve => {
         process.stdout.write(prompt + ' ');
@@ -12,7 +16,6 @@ function getSecureInput(prompt) {
         process.stdin.resume();
         process.stdin.setEncoding('utf-8');
         
-        // This function control the security of the secret key you input.
         const onData = (char) => {
             char = char.toString();
             
@@ -33,13 +36,11 @@ function getSecureInput(prompt) {
                 return;
             }
             
-            // Backspace
             if (char === '\u0008' || char === '\u007f') {
                 input = input.slice(0, -1);
                 return;
             }
             
-            // Add character to input
             input += char;
         };
         
@@ -62,9 +63,10 @@ function getNormalInput(query) {
 }
 
 async function main() {
-    const cookieFile =  'cookie.enc';
+    const cookieFile = 'cookie.enc';
     const targetsFile = 'include.txt';
     const excludeFile = 'exclude.txt';
+    const holdFile = 'hold.txt';
 
     try {
         console.log('===== Starting Roblox Unfriend Script =====');
@@ -116,6 +118,11 @@ async function main() {
         }
         console.log(`===== Running in ${mode.toUpperCase()} Mode =====`);
 
+        let successCount = 0;
+        let warnCount = 0;
+        let errorCount = 0;
+        let holdList = [];
+
         if (mode.trim().toLowerCase() === 'inclusive') {
             let targets;
             try {
@@ -134,8 +141,23 @@ async function main() {
 
             console.log(`[INFO] Processing ${targetList.length} targets:`);
             console.log('-'.repeat(40));
+            let unfriendCount = 0;
             for (const target of targetList) {
-                await processTarget(target, currentUser.id);
+                const result = await processTarget(target, currentUser.id);
+                if (result.success) {
+                    successCount++;
+                    unfriendCount++;
+                    if (unfriendCount % 20 === 0) {
+                        console.log('[INFO] Rate limit prevention: Waiting 7 seconds...');
+                        await delay(7000);
+                    }
+                } else if (result.warn) {
+                    warnCount++;
+                    holdList.push(target);
+                } else if (result.error) {
+                    errorCount++;
+                    holdList.push(target);
+                }
             }
             console.log('-'.repeat(40));
         } else {
@@ -174,21 +196,87 @@ async function main() {
             const friends = friendsResponse.data;
             console.log(`[INFO] Found ${friends.length} friends. Processing:`);
             console.log('-'.repeat(40));
-
+            let unfriendCount = 0;
             for (const friend of friends) {
                 const friendId = friend.id;
                 if (!excludeIds.has(friendId)) {
                     try {
                         await noblox.removeFriend(friendId);
-                        console.log(`  [SUCCESS] Unfriended ${friend.name} (ID: ${friendId})`);
+                        console.log(`  [INFO] Unfriended username: ${friend.name} (${friendId})`);
+                        successCount++;
+                        unfriendCount++;
+                        if (unfriendCount % 20 === 0) {
+                            console.log('[INFO] Rate limit prevention: Waiting 7 seconds...');
+                            await delay(7000);
+                        }
                     } catch (error) {
                         console.log(`  [ERROR] Failed to unfriend ${friend.name} (ID: ${friendId}): ${error.message}`);
+                        errorCount++;
+                        holdList.push(friend.name);
                     }
                 } else {
                     console.log(`  [INFO] Skipped excluded user ${friend.name} (ID: ${friendId})`);
                 }
             }
             console.log('-'.repeat(40));
+        }
+
+        // Display stats
+        console.log(`[STATS] Unfriended: ${successCount} users`);
+        console.log(`[STATS] Warnings: ${warnCount} users`);
+        console.log(`[STATS] Errors: ${errorCount} users`);
+
+        // Write hold list to hold.txt if there are any warnings or errors
+        if (holdList.length > 0) {
+            await fs.writeFile(holdFile, holdList.join('\n'));
+            console.log(`[INFO] ${holdList.length} users with warnings or errors saved to ${holdFile}`);
+
+            // Ask user if they want to retry
+            console.log('[INFO] Would you like to retry unfriending users from hold.txt?');
+            const retryAnswer = await getNormalInput('Enter "yes" to retry, "no" to exit: ');
+            if (retryAnswer.trim().toLowerCase() === 'yes') {
+                console.log(`[INFO] Retrying ${holdList.length} users from hold.txt:`);
+                console.log('-'.repeat(40));
+                let retrySuccessCount = 0;
+                let retryWarnCount = 0;
+                let retryErrorCount = 0;
+                let newHoldList = [];
+                let unfriendCount = 0;
+
+                for (const target of holdList) {
+                    const result = await processTarget(target, currentUser.id);
+                    if (result.success) {
+                        retrySuccessCount++;
+                        unfriendCount++;
+                        if (unfriendCount % 20 === 0) {
+                            console.log('[INFO] Rate limit prevention: Waiting 7 seconds...');
+                            await delay(7000);
+                        }
+                    } else if (result.warn) {
+                        retryWarnCount++;
+                        newHoldList.push(target);
+                    } else if (result.error) {
+                        retryErrorCount++;
+                        newHoldList.push(target);
+                    }
+                }
+
+                console.log('-'.repeat(40));
+                console.log(`[RETRY STATS] Unfriended: ${retrySuccessCount} users`);
+                console.log(`[RETRY STATS] Warnings: ${retryWarnCount} users`);
+                console.log(`[RETRY STATS] Errors: ${retryErrorCount} users`);
+
+                // Update hold.txt with remaining failed users
+                if (newHoldList.length > 0) {
+                    await fs.writeFile(holdFile, newHoldList.join('\n'));
+                    console.log(`[INFO] ${newHoldList.length} users still failed and updated in ${holdFile}`);
+                } else {
+                    await fs.unlink(holdFile);
+                    console.log(`[INFO] All retries successful, ${holdFile} deleted`);
+                }
+            } else {
+                console.log('[INFO] Retry skipped, users remain in hold.txt');
+            }
         }
 
         console.log(`===== ${mode.toUpperCase()} Mode Completed =====`);
@@ -202,26 +290,25 @@ async function processTarget(target, currentUserId) {
         let userId;
         if (/^\d+$/.test(target)) {
             userId = parseInt(target);
-            console.log(`  [INFO] Unfriending by ID: ${userId}`);
         } else {
-            console.log(`  [INFO] Resolving username: ${target}`);
             userId = await noblox.getIdFromUsername(target);
             if (!userId) {
-                console.log(`    [WARN] Failed to resolve ${target} to an ID. Skipping`);
-                return;
+                console.log(`  [WARN] Failed to resolve ${target} to an ID. Skipping`);
+                return { success: false, warn: true, error: false };
             }
-            console.log(`    [INFO] Resolved ${target} to ID: ${userId}`);
         }
 
         if (userId === currentUserId) {
-            console.log(`    [WARN] Cannot unfriend yourself (ID: ${userId}). Skipping`);
-            return;
+            console.log(`  [WARN] Cannot unfriend yourself (ID: ${userId}). Skipping`);
+            return { success: false, warn: true, error: false };
         }
 
         await noblox.removeFriend(userId);
-        console.log(`    [SUCCESS] Unfriended ${target} (ID: ${userId})`);
+        console.log(`  [INFO] Unfriended username: ${target} (${userId})`);
+        return { success: true, warn: false, error: false };
     } catch (error) {
-        console.log(`    [ERROR] Failed to unfriend ${target}: ${error.message}`);
+        console.log(`  [ERROR] Failed to unfriend ${target}: ${error.message}`);
+        return { success: false, warn: false, error: true };
     }
 }
 
@@ -231,10 +318,9 @@ async function resolveToId(target) {
     } else {
         try {
             const id = await noblox.getIdFromUsername(target);
-            console.log(`    [INFO] Resolved ${target} to ID: ${id}`);
             return id;
         } catch (error) {
-            console.log(`    [WARN] Failed to resolve ${target}: ${error.message}`);
+            console.log(`  [WARN] Failed to resolve ${target}: ${error.message}`);
             return null;
         }
     }
