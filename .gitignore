@@ -2,3 +2,4 @@ cookie.enc
 node_modules/
 package-lock.json
 package.json
+node_modules
